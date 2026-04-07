@@ -23,9 +23,11 @@ from pathlib import Path
 import numpy as np
 import psutil
 import sounddevice as sd
+import threading
 import torch
 import urllib.request
 from transformers import VoxtralRealtimeForConditionalGeneration, AutoProcessor
+from transformers import TextIteratorStreamer
 from mistral_common.tokens.tokenizers.audio import Audio
 
 
@@ -128,20 +130,54 @@ def transcribe_audio(model, processor, audio_path: str):
     inputs = processor(audio.audio_array, return_tensors="pt")
     inputs = inputs.to(model.device, dtype=model.dtype)
 
+    audio_dur = len(audio.audio_array) / processor.feature_extractor.sampling_rate
+    expected_tokens = int(audio_dur * 12.5)
+    print(f"  Generating ~{expected_tokens} tokens...")
+    print("  This may take several minutes on CPU. Please wait...")
+
+    streamer = TextIteratorStreamer(processor.tokenizer, skip_special_tokens=True)
+
+    gen_kwargs = dict(
+        **inputs,
+        streamer=streamer,
+        max_new_tokens=max(expected_tokens + 200, 200),
+    )
+
+    thread = threading.Thread(target=model.generate, kwargs=gen_kwargs)
+    thread.start()
+
+    print(f"\n{'=' * 60}")
+    print("TRANSCRIPT (streaming):")
+    print(f"{'=' * 60}")
+
+    transcript = ""
+    token_count = 0
     start_time = time.time()
-    outputs = model.generate(**inputs)
+    last_report = 0
+
+    for new_text in streamer:
+        transcript += new_text
+        token_count += 1
+        elapsed = time.time() - start_time
+
+        if elapsed - last_report >= 2:
+            tps = token_count / elapsed if elapsed > 0 else 0
+            print(
+                f"\r  [{elapsed:.0f} s elapsed | {token_count} tokens generated | {tps:.1f} t/s]",
+                end="",
+                flush=True,
+            )
+            last_report = elapsed
+
+    thread.join()
     elapsed = time.time() - start_time
+    tps = token_count / elapsed if elapsed > 0 else 0
 
-    decoded = processor.batch_decode(outputs, skip_special_tokens=True)
-    transcript = decoded[0]
-
-    print(f"\nTranscription completed in {elapsed:.1f}s")
-    print(
-        f"Audio duration: {len(audio.audio_array) / processor.feature_extractor.sampling_rate:.1f}s"
-    )
-    print(
-        f"Real-time factor: {elapsed / (len(audio.audio_array) / processor.feature_extractor.sampling_rate):.2f}x"
-    )
+    print(f"\n{'=' * 60}")
+    print(f"\nTranscription completed in {elapsed / 60:.1f} min ({tps:.1f} tokens/s)")
+    print(f"Audio duration: {audio_dur:.1f}s")
+    print(f"Real-time factor: {elapsed / audio_dur:.2f}x")
+    print(f"Tokens generated: {token_count}")
     print(f"\n{'=' * 60}")
     print(f"TRANSCRIPT:")
     print(f"{'=' * 60}")
@@ -238,21 +274,60 @@ def transcribe_from_mic(model, processor, duration: int = 30):
         return
 
     audio_array = np.concatenate(audio_data, axis=0).flatten()
-    print(f"Recorded {len(audio_array) / sample_rate:.1f}s of audio")
+    audio_dur = len(audio_array) / sample_rate
+    print(f"Recorded {audio_dur:.1f}s of audio")
     print("Processing...")
 
     inputs = processor(audio_array, return_tensors="pt")
     inputs = inputs.to(model.device, dtype=model.dtype)
 
-    start_time = time.time()
-    outputs = model.generate(**inputs)
-    elapsed = time.time() - start_time
+    expected_tokens = int(audio_dur * 12.5)
+    print(f"  Generating ~{expected_tokens} tokens...")
 
-    decoded = processor.batch_decode(outputs, skip_special_tokens=True)
-    transcript = decoded[0]
+    streamer = TextIteratorStreamer(processor.tokenizer, skip_special_tokens=True)
 
-    print(f"\nTranscription completed in {elapsed:.1f}s")
+    gen_kwargs = dict(
+        **inputs,
+        streamer=streamer,
+        max_new_tokens=max(expected_tokens + 200, 200),
+    )
+
+    thread = threading.Thread(target=model.generate, kwargs=gen_kwargs)
+    thread.start()
+
+    print(f"\n{'=' * 60}")
+    print("TRANSCRIPT (streaming):")
     print(f"{'=' * 60}")
+
+    transcript = ""
+    token_count = 0
+    start_time = time.time()
+    last_report = 0
+
+    for new_text in streamer:
+        transcript += new_text
+        token_count += 1
+        elapsed = time.time() - start_time
+
+        if elapsed - last_report >= 2:
+            tps = token_count / elapsed if elapsed > 0 else 0
+            print(
+                f"\r  [{elapsed:.0f} s elapsed | {token_count} tokens generated | {tps:.1f} t/s]",
+                end="",
+                flush=True,
+            )
+            last_report = elapsed
+
+    thread.join()
+    elapsed = time.time() - start_time
+    tps = token_count / elapsed if elapsed > 0 else 0
+
+    print(f"\n{'=' * 60}")
+    print(f"\nTranscription completed in {elapsed / 60:.1f} min ({tps:.1f} tokens/s)")
+    print(f"Audio duration: {audio_dur:.1f}s")
+    print(f"Real-time factor: {elapsed / audio_dur:.2f}x")
+    print(f"Tokens generated: {token_count}")
+    print(f"\n{'=' * 60}")
     print(f"TRANSCRIPT:")
     print(f"{'=' * 60}")
     print(transcript)
