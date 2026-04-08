@@ -36,6 +36,7 @@ def load_model(model_id: str = PARAKEET_MODEL_ID):
 
     print(f"\n[Step 1/2] Importing NeMo ASR toolkit...")
     import nemo.collections.asr as nemo_asr
+
     print("[Step 1/2] NeMo imported.")
 
     print(f"\n[Step 2/2] Loading Parakeet model from {model_id}...")
@@ -75,7 +76,9 @@ def transcribe_audio(model, audio_path: str):
     print(f"  Duration: {audio_dur:.1f}s | Sample rate: {sample_rate}Hz")
 
     print(f"\nTranscribing with Parakeet (batch mode)...")
-    print("  Parakeet processes the full audio in one pass - much faster than real-time.")
+    print(
+        "  Parakeet processes the full audio in one pass - much faster than real-time."
+    )
 
     t0 = time.time()
     # NeMo transcribe() accepts file paths; write to a temp wav if needed
@@ -216,17 +219,19 @@ def main():
     args = parser.parse_args()
 
     if args.delay is not None:
-        print("Note: --del (transcription delay) is a Voxtral-only option and has no effect on Parakeet.")
+        print(
+            "Note: --del (transcription delay) is a Voxtral-only option and has no effect on Parakeet."
+        )
 
     if args.cache_dir:
         import os
+
         os.environ["NEMO_CACHE_DIR"] = args.cache_dir
 
     model = load_model(args.model)
 
     print(f"\n{'=' * 60}")
-    print(f"  python transcribe_parakeet.py --MODEL --MODE --DUR")
-    print(f"  MODEL:    voxtral  |  parakeet")
+    print(f"  python transcribe_parakeet.py --MODE --DUR")
     print(f"  MODE:     mic  |  audio.mp3")
     print(f"  DURATION: (in min, default: 60)")
     print(f"\n  To end transcription, press CTRL + C")

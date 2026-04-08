@@ -319,7 +319,20 @@ def main():
         default=960,
         help="Transcription delay in ms (e.g. 480, 960, 2400). Higher = more accurate but more latency (default: 960)",
     )
+    parser.add_argument(
+        "--engine",
+        dest="engine",
+        type=str,
+        default="voxtral",
+        help="Engine to use: voxtral (default)",
+    )
     args = parser.parse_args()
+
+    if args.engine != "voxtral":
+        print(
+            f"Error: This script uses the Voxtral engine. Use 'python transcribe_voxtral.py' for Voxtral."
+        )
+        sys.exit(1)
 
     if args.cache_dir:
         os.environ["HF_HOME"] = args.cache_dir
@@ -327,8 +340,7 @@ def main():
     model, processor = load_model_and_processor(args.model, args.delay)
 
     print(f"\n{'=' * 60}")
-    print(f"  python transcribe_voxtral.py --MODEL --MODE --DUR --DEL")
-    print(f"  MODEL:    voxtral  |  parakeet")
+    print(f"  python transcribe_voxtral.py --MODE --DUR --DEL")
     print(f"  MODE:     mic  |  audio.mp3")
     print(f"  DURATION: (in min, default: 60)")
     print(f"  DELAY:    80, 480, 960, 2400  (in ms, default: 960)")

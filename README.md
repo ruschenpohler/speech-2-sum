@@ -101,7 +101,11 @@ Transcripts are saved to `transcripts/` as timestamped Markdown files:
 
 ```
 transcripts/2026-04-08_14h-32m--5min.md
+transcripts/2026-04-08_14h-32m--30sec.md
 ```
+
+Filename format: `YYYY-MM-DD_HHh-MMm--[duration].[ext]`
+- `[duration]` is in seconds (`30sec`) for recordings under 1 minute, or minutes (`5min`) for 1 minute and over.
 
 Each file header includes the model name, [delay parameter for Voxtral,] timestamp, approximate location (from IP), WiFi network, and audio source.
 

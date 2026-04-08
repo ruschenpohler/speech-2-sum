@@ -81,8 +81,12 @@ def save_transcript(
     location = get_location()
 
     ts = start_time.strftime("%Y-%m-%d_%Hh-%Mm")
-    dur_min = round(duration_sec / 60)
-    filename = out_dir / f"{ts}--{dur_min}min.md"
+    # Format: [xx]sec for <1 min, [xx]min for >=1 min
+    if duration_sec < 60:
+        dur_str = f"{round(duration_sec)}sec"
+    else:
+        dur_str = f"{round(duration_sec / 60)}min"
+    filename = out_dir / f"{ts}--{dur_str}.md"
 
     params_str = ""
     if model_params:
