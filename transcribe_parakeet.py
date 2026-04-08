@@ -41,7 +41,7 @@ def load_model(model_id: str = PARAKEET_MODEL_ID):
     print(f"\n[Step 2/2] Loading Parakeet model from {model_id}...")
     print("  This may take a minute on first run. Please wait...")
     t0 = time.time()
-    model = nemo_asr.models.ASRModel.from_pretrained(model_id=model_id)
+    model = nemo_asr.models.ASRModel.from_pretrained(model_name=model_id)
     model.eval()
     elapsed = time.time() - t0
     print(f"[Step 2/2] Parakeet model ready in {elapsed:.0f}s.")

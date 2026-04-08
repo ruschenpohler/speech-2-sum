@@ -33,7 +33,7 @@ def main():
     import nemo.collections.asr as nemo_asr
 
     print("Loading model (this triggers the download on first run)...")
-    model = nemo_asr.models.ASRModel.from_pretrained(model_id=model_id)
+    model = nemo_asr.models.ASRModel.from_pretrained(model_name=model_id)
 
     cache_note = f" at {args.cache_dir}" if args.cache_dir else ""
     print(f"\nParakeet downloaded and cached{cache_note}.")
