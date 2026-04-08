@@ -117,6 +117,39 @@ Each file header includes the model name, [delay parameter for Voxtral,] timesta
 
 - **Fallback:** If Transformers is too slow for Voxtral, [antirez/voxtral.c](https://github.com/antirez/voxtral.c) is a faster pure-C implementation. May benchmark later
 
-## Next
+---
 
-- Building summarization sub-pipeline according to SUMMARIZE_IMPL.md
+## Summarization
+
+Local summarization using Qwen2.5-7B-Instruct (GGUF Q8_0) via llama.cpp. Produces a hybrid output: abstractive summary + extracted verbatim quotes. Requires ~12 GB RAM.
+
+### Setup
+
+```powershell
+uv pip install -e ".[summarize]"
+python download_summarizer.py   # ~6.7 GB
+```
+
+### Usage
+
+```powershell
+# Standalone — summarize a specific transcript
+python summarize.py transcripts/2026-04-08_14h-32m--5min.md
+
+# Auto-summarize immediately after transcription finishes
+python transcribe.py --voxtral  --mic --sum
+python transcribe.py --parakeet --mic --sum
+```
+
+### Flags
+
+| Flag | Default | Description |
+|---|---|---|
+| `--keep` | `last` | Truncation strategy when input exceeds `--max-cont`: `first` (lectures/presentations) or `last` (meetings/conversations) |
+| `--max-cont` | 4000 | Max input tokens before truncation |
+| `--max-out` | 500 | Max output tokens |
+| `--cache-dir` | `./models` | Directory containing the GGUF file |
+
+### Output
+
+Saved to `summaries/[transcript_stem]_SUM.md`, including summary, key quotes, and inference metrics.
