@@ -44,7 +44,7 @@ def get_wifi_name():
 
 
 def get_location():
-    """Get approximate location from public IP geolocation."""
+    """Get approximate location and timezone from public IP geolocation."""
     try:
         req = urllib.request.Request(
             "http://ip-api.com/json/", headers={"User-Agent": "transcribe"}
@@ -55,9 +55,11 @@ def get_location():
         for key in ["city", "regionName", "country"]:
             if data.get(key):
                 parts.append(data[key])
-        return ", ".join(parts) if parts else "Unknown"
+        location = ", ".join(parts) if parts else "Unknown"
+        timezone = data.get("timezone", "")
+        return location, timezone
     except Exception:
-        return "Unknown"
+        return "Unknown", ""
 
 
 def save_transcript(
@@ -78,9 +80,13 @@ def save_transcript(
     out_dir.mkdir(exist_ok=True)
 
     wifi = get_wifi_name()
-    location = get_location()
+    location, timezone = get_location()
 
     ts = start_time.strftime("%Y-%m-%d_%Hh-%Mm")
+    ts_with_tz = start_time.strftime("%Y-%m-%d %H:%M:%S")
+    if timezone:
+        ts_with_tz += f" {timezone}"
+
     # Format: [xx]sec for <1 min, [xx]min for >=1 min
     if duration_sec < 60:
         dur_str = f"{round(duration_sec)}sec"
@@ -93,7 +99,7 @@ def save_transcript(
         params_str = " | " + ", ".join(f"{k}: {v}" for k, v in model_params.items())
 
     header = (
-        f"# {start_time.strftime('%Y-%m-%d %H:%M:%S')} | "
+        f"# {ts_with_tz} | "
         f"Model: {model_name}{params_str} | "
         f"{location} | WiFi: {wifi} | Source: {source}"
     )
