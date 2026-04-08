@@ -11,8 +11,6 @@ Private, offline speech-to-text on CPU. Two model backends are available — pic
 | Toolkit | HuggingFace Transformers | NVIDIA NeMo |
 | Windows native | Yes | WSL2 best |
 
-Both models run fully locally — no audio ever leaves your machine.
-
 ---
 
 ## Setup
@@ -117,6 +115,8 @@ Each file header includes the model name, [delay parameter for Voxtral,] timesta
 - **Voxtral on CPU:** Expect ~0.5–2× real-time factor depending on CPU
 - **Supported audio formats:** mp3, wav, flac, ogg, and others
 
-## Fallback
+- **Fallback:** If Transformers is too slow for Voxtral, [antirez/voxtral.c](https://github.com/antirez/voxtral.c) is a faster pure-C implementation. May benchmark later
 
-If Transformers is too slow for Voxtral, [antirez/voxtral.c](https://github.com/antirez/voxtral.c) is a faster pure-C implementation. May benchmark later
+## Next
+
+- Building summarization sub-pipeline according to SUMMARIZE_IMPL.md
