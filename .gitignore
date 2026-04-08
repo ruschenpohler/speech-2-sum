@@ -1,4 +1,39 @@
+# Virtual environments
 .venv/
+.venv-*/
+venv/
+
+# Python
 __pycache__/
-*.pyc
+*.py[cod]
+*.pyo
+
+# uv — lock file is intentionally excluded (reproducibility is per-machine
+# given the CPU-only PyTorch index; commit it if you want pinned installs)
+uv.lock
+
+# Model weights — never commit (gigabytes, re-downloadable via download_*.py)
+*.safetensors
+*.bin
+*.gguf
+*.ckpt
+*.pt
+*.pth
+.cache/
+models/
+
+# Transcripts — personal data, not for sharing
 transcripts/
+
+# Fallback implementations (separate repos, referenced by URL in README)
+fallbacks/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor
+.vscode/
+.idea/
+*.swp
