@@ -96,9 +96,8 @@ Source: `Qwen/Qwen2.5-7B-Instruct-GGUF` on HuggingFace, file `qwen2.5-7b-instruc
 python summarize.py transcripts/2026-04-08_14h-32m--5min.md
 
 # Truncation strategy
-python summarize.py --keep both  transcripts/file.md   # default
-python summarize.py --keep first transcripts/file.md
-python summarize.py --keep last  transcripts/file.md
+python summarize.py --keep first transcripts/file.md   # keep opening N tokens
+python summarize.py --keep last  transcripts/file.md   # keep final N tokens (default)
 
 # Context / output limits
 python summarize.py --max-cont 2000 --max-out 300 transcripts/file.md
@@ -127,7 +126,7 @@ Saved to `summaries/[transcript_stem]_SUM.md`:
 ```markdown
 # Summary: 2026-04-08_14h-32m--5min
 
-**Model:** Qwen2.5-7B-Instruct (GGUF Q8_0) | **Keep:** both | **Input tokens:** 1842
+**Model:** Qwen2.5-7B-Instruct (GGUF Q8_0) | **Keep:** last | **Input tokens:** 1842
 
 Generated: 2026-04-08 14:45:00 | Berlin, Germany | WiFi: MyNetwork
 
@@ -165,6 +164,23 @@ Generated: 2026-04-08 14:45:00 | Berlin, Germany | WiFi: MyNetwork
 - CPU: any modern multi-core (uses `os.cpu_count()` threads automatically)
 - No GPU required
 
+## Error Handling
+
+| Failure Mode | User Message | Action |
+|---|---|---|
+| GGUF file missing | `Error: Model not found at <path>. Run: python download_summarizer.py` | Exit with code 1 |
+| GGUF file corrupted | `Error: Failed to load GGUF model. File may be corrupted. Re-download: python download_summarizer.py --cache-dir <path>` | Exit with code 1 |
+| Input file missing | `Error: File not found: <path>` | Exit with code 1 |
+| Input file unreadable | `Error: Cannot read file. Check permissions: <path>` | Exit with code 1 |
+| Model load timeout | `[TIMEOUT] Model load exceeded 120s. Your system may be undersized for 12GB model.` | Exit with code 1 |
+| Generation timeout | `[TIMEOUT] Generation exceeded 300s. Try reducing --max-out.` | Exit with code 1 |
+| Empty transcription | `Warning: Transcription file is empty. Nothing to summarize.` | Skip, no output file |
+| Network error (location/WiFi) | `[Warning] Could not fetch location/WiFi. Continuing without metadata.` | Continue, use "Unknown" |
+
+All errors printed to stderr, with clear action items. No silent failures.
+
+---
+
 ## Expected latency (CPU-only)
 
 | Phase | Estimate |
@@ -179,11 +195,11 @@ Generated: 2026-04-08 14:45:00 | Berlin, Germany | WiFi: MyNetwork
 ## Implementation Checklist
 
 - [x] Design decisions documented
-- [ ] pyproject.toml updated
+- [ ] pyproject.toml updated (llama-cpp-python dependency)
 - [ ] download_summarizer.py created
-- [ ] summarize.py created
+- [ ] summarize.py created (with clear error messages as specified above)
 - [ ] transcribe.py updated with --sum
-- [ ] README.md updated
+- [x] README.md updated
 - [ ] Tested: download_summarizer.py
 - [ ] Tested: summarize.py standalone
 - [ ] Tested: transcribe.py --sum workflow
