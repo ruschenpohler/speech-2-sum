@@ -1,0 +1,50 @@
+[project]
+name = "speech-2-sum"
+version = "0.1.0"
+description = "Local, private speech-to-text on CPU — Voxtral and Parakeet backends"
+requires-python = ">=3.10"
+
+# Core: shared utilities only — no model backend yet
+dependencies = [
+    "numpy>=1.26",
+    "psutil",
+    "sounddevice",
+    "soundfile",
+]
+
+[project.optional-dependencies]
+# Mistral Voxtral Mini 4B Realtime (HuggingFace Transformers)
+voxtral = [
+    "torch>=2.6.0",
+    "torchaudio>=2.6.0",
+    "transformers>=5.2.0",
+    "mistral-common[audio]>=1.9.0",
+    "librosa",
+    "soxr",
+    "huggingface-hub",
+]
+
+# NVIDIA Parakeet TDT 0.6B (NeMo)
+# Note: nemo-toolkit is not officially supported on native Windows.
+# Use WSL2 on Windows, or Linux/macOS directly.
+parakeet = [
+    "torch>=2.6.0",
+    "nemo-toolkit[asr]>=2.7.0",
+]
+
+# Install both backends at once
+all = [
+    "speech-2-sum[voxtral]",
+    "speech-2-sum[parakeet]",
+]
+
+[tool.uv]
+# PyTorch CPU-only index — avoids pulling in 2GB+ CUDA builds
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = [{ index = "pytorch-cpu" }]
+torchaudio = [{ index = "pytorch-cpu" }]
