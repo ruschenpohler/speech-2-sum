@@ -4,14 +4,12 @@ Private, offline speech-to-text on CPU. Two model backends are available — pic
 
 | | Voxtral Mini 4B | Parakeet TDT 0.6B |
 |---|---|---|
-| Source | Mistral AI | NVIDIA |
 | Parameters | 4B | 0.6B |
 | Weights | ~8 GB (BF16) | ~2.5 GB (FP32) |
-| Inference | Streaming (token-by-token) | Batch (full audio at once) |
-| CPU speed | ~0.5–2× real-time | Faster on CPU |
+| Inference | Batch or Streaming | Batch |
 | Delay tuning | Yes (`--del`) | No |
 | Toolkit | HuggingFace Transformers | NVIDIA NeMo |
-| Windows native | Yes | WSL2 recommended |
+| Windows native | Yes | WSL2 best |
 
 Both models run fully locally — no audio ever leaves your machine.
 
@@ -105,16 +103,16 @@ Transcripts are saved to `transcripts/` as timestamped Markdown files:
 transcripts/2026-04-08_14h-32m--5min.md
 ```
 
-Each file header includes the model name, timestamp, approximate location (from IP), WiFi network, and audio source.
+Each file header includes the model name, [delay parameter for Voxtral,] timestamp, approximate location (from IP), WiFi network, and audio source.
 
 ---
 
 ## Notes
 
-- **Parakeet on Windows:** NVIDIA NeMo is not officially supported on native Windows. If you hit installation issues, use WSL2.
-- **Voxtral on CPU:** Expect ~0.5–2× real-time factor depending on CPU.
-- **Supported audio formats:** mp3, wav, flac, ogg, and other formats supported by librosa/soundfile.
+- **Parakeet on Windows:** NVIDIA NeMo is not officially supported on native Windows (>> may use WSL2)
+- **Voxtral on CPU:** Expect ~0.5–2× real-time factor depending on CPU
+- **Supported audio formats:** mp3, wav, flac, ogg, and others
 
 ## Fallback
 
-If Transformers is too slow for Voxtral, [antirez/voxtral.c](https://github.com/antirez/voxtral.c) is a faster pure-C implementation.
+If Transformers is too slow for Voxtral, [antirez/voxtral.c](https://github.com/antirez/voxtral.c) is a faster pure-C implementation. May benchmark later
