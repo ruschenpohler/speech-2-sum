@@ -77,6 +77,8 @@ python transcribe.py --parakeet --mic --dur 30
 |---|---|---|
 | `--voxtral` / `--parakeet` | — | `transcribe.py` dispatcher |
 | `--mic` | — | both |
+| `--mic-loop` | — | both |
+| `--kHz N` | integer (default: 16) | both |
 | `audio.mp3` | any audio file | both |
 | `--dur N` | minutes (default: 60) | both |
 | `--del N` | ms: 80, 480, 960, 2400 (default: 960) | Voxtral only |

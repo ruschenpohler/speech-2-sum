@@ -11,6 +11,7 @@ import time
 import urllib.request
 from pathlib import Path
 
+import numpy as np
 import psutil
 
 
@@ -21,19 +22,22 @@ def get_loopback_device():
     WASAPI loopback captures whatever is playing through the system speakers/headphones.
     """
     import sounddevice as sd
+
     try:
         devices = sd.query_devices()
         default_out = sd.query_devices(kind="output")
         default_out_name = default_out["name"]
         for i, dev in enumerate(devices):
-            # WASAPI loopback devices mirror the output device name and are input-capable
             if (
                 default_out_name in dev["name"]
                 and dev["max_input_channels"] > 0
                 and dev.get("hostapi") is not None
             ):
                 host_api = sd.query_hostapis(dev["hostapi"])
-                if "WASAPI" in host_api["name"] and i != sd.query_devices(kind="input")["index"]:
+                if (
+                    "WASAPI" in host_api["name"]
+                    and i != sd.query_devices(kind="input")["index"]
+                ):
                     return i
     except Exception:
         pass
@@ -45,11 +49,11 @@ def record_until_esc_or_timeout(duration: float):
     Block for up to `duration` seconds, returning early if ESC is pressed.
     Uses the `keyboard` package for non-blocking key detection.
     Falls back to plain sleep (Ctrl+C to stop) if `keyboard` is unavailable
-    or lacks OS permissions (keyboard requires admin on some Linux setups;
-    works without elevation on Windows).
+    or lacks OS permissions.
     """
     try:
         import keyboard
+
         print("Press ESC to stop recording early.\n")
         start = time.time()
         while time.time() - start < duration:
@@ -60,6 +64,123 @@ def record_until_esc_or_timeout(duration: float):
     except Exception:
         print("Press Ctrl+C to stop recording early.\n")
         time.sleep(duration)
+
+
+def record_audio(
+    mic: bool, loopback: bool, duration_sec: float, kHz: int = 16
+) -> tuple[np.ndarray, str]:
+    """
+    Record audio from mic, system loopback, or both simultaneously.
+
+    Args:
+        mic: record physical microphone
+        loopback: record system audio via WASAPI loopback
+        duration_sec: max recording length in seconds
+        kHz: sample rate in kHz (default: 16)
+
+    Returns:
+        (audio_array, source_label)
+        - audio_array: float32 numpy array, mono, at kHz*1000 Hz
+        - source_label: "Microphone", "System Audio (loopback)", or "Microphone + System Audio"
+    """
+    import sounddevice as sd
+
+    if not mic and not loopback:
+        raise ValueError("At least one of mic or loopback must be True")
+
+    sample_rate = kHz * 1000
+
+    loopback_device = None
+    if loopback:
+        loopback_device = get_loopback_device()
+        if loopback_device is None:
+            print("Warning: WASAPI loopback device not found — loopback disabled.")
+            loopback = False
+            if not mic:
+                raise RuntimeError(
+                    "No audio sources available (mic disabled, loopback not found)"
+                )
+
+    if mic and loopback:
+        source_label = "Microphone + System Audio"
+    elif loopback:
+        source_label = "System Audio (loopback)"
+    else:
+        source_label = "Microphone"
+
+    print(f"  Source: {source_label}")
+
+    mic_chunks = []
+    loop_chunks = []
+
+    def mic_callback(indata, frames, time_info, status):
+        if status:
+            print(f"[mic] {status}", file=__import__("sys").stderr)
+        mic_chunks.append(indata.copy())
+
+    def loop_callback(indata, frames, time_info, status):
+        if status:
+            print(f"[loop] {status}", file=__import__("sys").stderr)
+        loop_chunks.append(indata.copy())
+
+    streams = []
+    if mic:
+        streams.append(
+            sd.InputStream(
+                samplerate=sample_rate,
+                channels=1,
+                dtype="float32",
+                callback=mic_callback,
+            )
+        )
+    if loopback:
+        streams.append(
+            sd.InputStream(
+                samplerate=sample_rate,
+                channels=1,
+                dtype="float32",
+                device=loopback_device,
+                callback=loop_callback,
+            )
+        )
+
+    class MultiStream:
+        def __init__(self, streams):
+            self.streams = streams
+
+        def __enter__(self):
+            for s in self.streams:
+                s.__enter__()
+            return self
+
+        def __exit__(self, *args):
+            for s in self.streams:
+                s.__exit__(*args)
+
+    with MultiStream(streams):
+        record_until_esc_or_timeout(duration)
+
+    if mic and loopback:
+        mic_arr = np.concatenate(mic_chunks).flatten()
+        loop_arr = np.concatenate(loop_chunks).flatten()
+        min_len = min(len(mic_arr), len(loop_arr))
+        mic_arr = mic_arr[:min_len]
+        loop_arr = loop_arr[:min_len]
+        mic_max = np.abs(mic_arr).max()
+        loop_max = np.abs(loop_arr).max()
+        if mic_max > 0:
+            mic_arr = mic_arr / mic_max
+        if loop_max > 0:
+            loop_arr = loop_arr / loop_max
+        audio = (mic_arr + loop_arr) / 2.0
+    elif mic:
+        audio = np.concatenate(mic_chunks).flatten()
+    elif loopback:
+        audio = np.concatenate(loop_chunks).flatten()
+    else:
+        audio = np.array([], dtype=np.float32)
+
+    return audio, source_label
 
 
 def print_ram(label=""):

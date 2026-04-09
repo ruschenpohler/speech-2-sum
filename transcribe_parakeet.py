@@ -21,10 +21,9 @@ import tempfile
 from pathlib import Path
 
 import numpy as np
-import sounddevice as sd
 import soundfile as sf
 
-from utils import print_ram, save_transcript, record_until_esc_or_timeout, get_loopback_device
+from utils import print_ram, save_transcript, record_audio
 
 MODEL_NAME = "Parakeet"
 PARAKEET_MODEL_ID = "nvidia/parakeet-tdt-0.6b-v3"
@@ -113,46 +112,27 @@ def transcribe_audio(model, audio_path: str):
     return transcript
 
 
-def transcribe_from_mic(model, duration: int = 30, loopback: bool = False):
+def transcribe_from_mic(
+    model, duration: int = 30, mic: bool = True, loopback: bool = False
+):
     """Record from microphone (or system audio loopback) and transcribe."""
     sample_rate = 16000  # Parakeet expects 16kHz
+    kHz = 16
 
-    device = None
-    if loopback:
-        device = get_loopback_device()
-        if device is None:
-            print("Warning: WASAPI loopback device not found. Falling back to default mic.")
-            source_label = "Microphone (loopback fallback)"
-        else:
-            print(f"Loopback device: {sd.query_devices(device)['name']}")
-            source_label = "System Audio (loopback)"
-    else:
-        source_label = "Microphone"
-
-    print(f"\nRecording for up to {duration} seconds... Speak now!")
-
-    audio_data = []
+    print(f"\nRecording for up to {duration} seconds...")
     record_start = datetime.datetime.now()
 
-    def callback(indata, frames, time_info, status):
-        if status:
-            print(f"Status: {status}", file=sys.stderr)
-        audio_data.append(indata.copy())
+    audio_array, source_label = record_audio(
+        mic=mic,
+        loopback=loopback,
+        duration_sec=duration,
+        kHz=kHz,
+    )
 
-    with sd.InputStream(
-        samplerate=sample_rate,
-        channels=1,
-        dtype="float32",
-        device=device,
-        callback=callback,
-    ):
-        record_until_esc_or_timeout(duration)
-
-    if not audio_data:
+    if len(audio_array) == 0:
         print("No audio recorded.")
         return
 
-    audio_array = np.concatenate(audio_data, axis=0).flatten()
     audio_dur = len(audio_array) / sample_rate
     print(f"Recorded {audio_dur:.1f}s of audio")
 
@@ -194,16 +174,22 @@ def main():
     parser = argparse.ArgumentParser(
         description="NVIDIA Parakeet TDT 0.6B - Local CPU Transcription"
     )
-    group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument(
+    # Recording mode: --mic and --mic-loop can be used together
+    recording = parser.add_argument_group(title="recording options")
+    recording.add_argument("--mic", action="store_true", help="Record from microphone")
+    recording.add_argument(
+        "--mic-loop",
+        action="store_true",
+        help="Record system audio via WASAPI loopback (captures whatever is playing)",
+    )
+    recording.add_argument(
+        "--kHz", type=int, default=16, help="Sample rate in kHz (default: 16)"
+    )
+
+    # File input: mutually exclusive with recording
+    file_group = parser.add_argument_group(title="file input")
+    file_group.add_argument(
         "audio_file", nargs="?", help="Path to audio file (mp3, wav, flac, etc.)"
-    )
-    group.add_argument(
-        "--mic", action="store_true", help="Record from microphone and transcribe"
-    )
-    group.add_argument(
-        "--mic-loop", action="store_true",
-        help="Record system audio via WASAPI loopback (captures whatever is playing)"
     )
     parser.add_argument(
         "--model",
@@ -231,6 +217,14 @@ def main():
     )
     args = parser.parse_args()
 
+    # Validate: audio_file is mutually exclusive with --mic/--mic-loop
+    if args.audio_file and (args.mic or args.mic_loop):
+        parser.error("Cannot use audio_file with --mic or --mic-loop")
+    if not args.audio_file and not args.mic and not args.mic_loop:
+        parser.error(
+            "Must specify either audio_file or at least one of --mic/--mic-loop"
+        )
+
     if args.delay is not None:
         print(
             "Note: --del (transcription delay) is a Voxtral-only option and has no effect on Parakeet."
@@ -252,7 +246,7 @@ def main():
 
     if args.mic or args.mic_loop:
         duration_sec = int(args.dur * 60)
-        transcribe_from_mic(model, duration_sec, loopback=args.mic_loop)
+        transcribe_from_mic(model, duration_sec, mic=args.mic, loopback=args.mic_loop)
     else:
         transcribe_audio(model, args.audio_file)
 
