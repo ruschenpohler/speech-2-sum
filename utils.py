@@ -48,10 +48,11 @@ def get_loopback_device(verbose: bool = True):
             api_name = host_api["name"]
 
             # Match if device name contains default output name OR is PC Speaker/Stereo Mix
+            # Priority: Stereo Mix first (often more reliable), then PC Speaker, then generic match
             is_loopback = (
-                default_out_name.lower() in dev_name
+                "stereo mix" in dev_name
                 or "pc speaker" in dev_name
-                or "stereo mix" in dev_name
+                or default_out_name.lower() in dev_name
                 or "loopback" in dev_name
             )
 
@@ -204,8 +205,6 @@ def record_audio(
 
     with MultiStream(streams):
         record_until_esc_or_timeout(duration_sec)
-
-    print(f"  Recorded: mic_chunks={len(mic_chunks)}, loop_chunks={len(loop_chunks)}")
 
     if mic and loopback and mic_chunks and loop_chunks:
         mic_arr = np.concatenate(mic_chunks).flatten()
