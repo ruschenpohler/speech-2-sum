@@ -24,7 +24,7 @@ import numpy as np
 import sounddevice as sd
 import soundfile as sf
 
-from utils import print_ram, save_transcript
+from utils import print_ram, save_transcript, record_until_esc_or_timeout, get_loopback_device
 
 MODEL_NAME = "Parakeet"
 PARAKEET_MODEL_ID = "nvidia/parakeet-tdt-0.6b-v3"
@@ -113,12 +113,23 @@ def transcribe_audio(model, audio_path: str):
     return transcript
 
 
-def transcribe_from_mic(model, duration: int = 30):
-    """Record from microphone and transcribe."""
+def transcribe_from_mic(model, duration: int = 30, loopback: bool = False):
+    """Record from microphone (or system audio loopback) and transcribe."""
     sample_rate = 16000  # Parakeet expects 16kHz
 
-    print(f"\nRecording for {duration} seconds... Speak now!")
-    print("Press Ctrl+C to stop early.\n")
+    device = None
+    if loopback:
+        device = get_loopback_device()
+        if device is None:
+            print("Warning: WASAPI loopback device not found. Falling back to default mic.")
+            source_label = "Microphone (loopback fallback)"
+        else:
+            print(f"Loopback device: {sd.query_devices(device)['name']}")
+            source_label = "System Audio (loopback)"
+    else:
+        source_label = "Microphone"
+
+    print(f"\nRecording for up to {duration} seconds... Speak now!")
 
     audio_data = []
     record_start = datetime.datetime.now()
@@ -128,16 +139,14 @@ def transcribe_from_mic(model, duration: int = 30):
             print(f"Status: {status}", file=sys.stderr)
         audio_data.append(indata.copy())
 
-    try:
-        with sd.InputStream(
-            samplerate=sample_rate,
-            channels=1,
-            dtype="float32",
-            callback=callback,
-        ):
-            time.sleep(duration)
-    except KeyboardInterrupt:
-        print("\nRecording stopped.")
+    with sd.InputStream(
+        samplerate=sample_rate,
+        channels=1,
+        dtype="float32",
+        device=device,
+        callback=callback,
+    ):
+        record_until_esc_or_timeout(duration)
 
     if not audio_data:
         print("No audio recorded.")
@@ -172,7 +181,7 @@ def transcribe_from_mic(model, duration: int = 30):
 
     save_transcript(
         transcript,
-        source="Microphone",
+        source=source_label,
         start_time=record_start,
         duration_sec=audio_dur,
         model_name=MODEL_NAME,
@@ -191,6 +200,10 @@ def main():
     )
     group.add_argument(
         "--mic", action="store_true", help="Record from microphone and transcribe"
+    )
+    group.add_argument(
+        "--mic-loop", action="store_true",
+        help="Record system audio via WASAPI loopback (captures whatever is playing)"
     )
     parser.add_argument(
         "--model",
@@ -232,14 +245,14 @@ def main():
 
     print(f"\n{'=' * 60}")
     print(f"  python transcribe_parakeet.py --MODE --DUR")
-    print(f"  MODE:     mic  |  audio.mp3")
+    print(f"  MODE:     mic  |  mic-loop  |  audio.mp3")
     print(f"  DURATION: (in min, default: 60)")
-    print(f"\n  To end transcription, press CTRL + C")
+    print(f"\n  Press ESC to stop recording")
     print(f"{'=' * 60}\n")
 
-    if args.mic:
+    if args.mic or args.mic_loop:
         duration_sec = int(args.dur * 60)
-        transcribe_from_mic(model, duration_sec)
+        transcribe_from_mic(model, duration_sec, loopback=args.mic_loop)
     else:
         transcribe_audio(model, args.audio_file)
 

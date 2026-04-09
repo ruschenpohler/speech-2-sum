@@ -4,8 +4,10 @@ Selects the model backend and forwards all remaining arguments to it.
 Optionally auto-summarizes the transcript after recording completes.
 
 Usage:
-    python transcribe.py --voxtral  --mic --dur 60 --del 960
-    python transcribe.py --parakeet --mic --dur 30
+    python transcribe.py --voxtral  --mic      --dur 60 --del 960
+    python transcribe.py --voxtral  --mic-loop --dur 60
+    python transcribe.py --parakeet --mic      --dur 30
+    python transcribe.py --parakeet --mic-loop --dur 30
     python transcribe.py --voxtral  --mic --sum
     python transcribe.py --voxtral  audio.mp3
     python transcribe.py --parakeet audio.mp3

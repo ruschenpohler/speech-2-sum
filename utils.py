@@ -7,10 +7,59 @@ import datetime
 import json
 import os
 import subprocess
+import time
 import urllib.request
 from pathlib import Path
 
 import psutil
+
+
+def get_loopback_device():
+    """
+    Find the WASAPI loopback device corresponding to the default audio output.
+    Returns the sounddevice device index, or None if not found.
+    WASAPI loopback captures whatever is playing through the system speakers/headphones.
+    """
+    import sounddevice as sd
+    try:
+        devices = sd.query_devices()
+        default_out = sd.query_devices(kind="output")
+        default_out_name = default_out["name"]
+        for i, dev in enumerate(devices):
+            # WASAPI loopback devices mirror the output device name and are input-capable
+            if (
+                default_out_name in dev["name"]
+                and dev["max_input_channels"] > 0
+                and dev.get("hostapi") is not None
+            ):
+                host_api = sd.query_hostapis(dev["hostapi"])
+                if "WASAPI" in host_api["name"] and i != sd.query_devices(kind="input")["index"]:
+                    return i
+    except Exception:
+        pass
+    return None
+
+
+def record_until_esc_or_timeout(duration: float):
+    """
+    Block for up to `duration` seconds, returning early if ESC is pressed.
+    Uses the `keyboard` package for non-blocking key detection.
+    Falls back to plain sleep (Ctrl+C to stop) if `keyboard` is unavailable
+    or lacks OS permissions (keyboard requires admin on some Linux setups;
+    works without elevation on Windows).
+    """
+    try:
+        import keyboard
+        print("Press ESC to stop recording early.\n")
+        start = time.time()
+        while time.time() - start < duration:
+            if keyboard.is_pressed("esc"):
+                print("\nESC pressed — stopping recording.")
+                break
+            time.sleep(0.05)
+    except Exception:
+        print("Press Ctrl+C to stop recording early.\n")
+        time.sleep(duration)
 
 
 def print_ram(label=""):
