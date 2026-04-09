@@ -32,10 +32,16 @@ parakeet = [
     "nemo-toolkit[asr]>=2.7.0",
 ]
 
-# Install both backends at once
+# Qwen2.5-7B Summarization (llama.cpp)
+summarize = [
+    "llama-cpp-python>=0.2.0",
+]
+
+# Install everything
 all = [
     "speech-2-sum[voxtral]",
     "speech-2-sum[parakeet]",
+    "speech-2-sum[summarize]",
 ]
 
 [tool.uv]

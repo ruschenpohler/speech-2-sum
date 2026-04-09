@@ -15,12 +15,16 @@ import datetime
 import os
 import re
 import sys
+import threading
 import time
 from pathlib import Path
 
 from llama_cpp import Llama
 
 from utils import print_ram, get_wifi_name, get_location
+
+LOAD_TIMEOUT = 120  # seconds
+GEN_TIMEOUT = 300  # seconds
 
 
 MODEL_FILE = "qwen2.5-7b-instruct-q8_0.gguf"
@@ -54,31 +58,54 @@ TRANSCRIPTION:
 # Model loading
 # =============================================================================
 
+
 def load_model(model_path: str):
-    """Load Qwen2.5-7B GGUF model via llama.cpp on CPU."""
+    """Load Qwen2.5-7B GGUF model via llama.cpp on CPU with timeout."""
     n_threads = os.cpu_count() or 4
     print_ram("Before loading")
     print(f"\n[Step 1/2] Loading model from {model_path}...")
     print(f"  Threads: {n_threads} | Device: CPU")
 
     t0 = time.time()
-    llm = Llama(
-        model_path=model_path,
-        n_gpu_layers=0,
-        n_threads=n_threads,
-        n_ctx=4096,
-        verbose=False,
-    )
-    elapsed = time.time() - t0
+    result = {"llm": None, "error": None}
 
+    def load_in_thread():
+        try:
+            result["llm"] = Llama(
+                model_path=model_path,
+                n_gpu_layers=0,
+                n_threads=n_threads,
+                n_ctx=4096,
+                verbose=False,
+            )
+        except Exception as e:
+            result["error"] = e
+
+    thread = threading.Thread(target=load_in_thread)
+    thread.start()
+    thread.join(timeout=LOAD_TIMEOUT)
+
+    if thread.is_alive():
+        print(
+            f"[TIMEOUT] Model load exceeded {LOAD_TIMEOUT}s. Your system may be undersized for 12GB model."
+        )
+        sys.exit(1)
+
+    if result["error"]:
+        print(f"Error: Failed to load GGUF model. File may be corrupted.")
+        print(f"Re-download: python download_summarizer.py --cache-dir models")
+        sys.exit(1)
+
+    elapsed = time.time() - t0
     print(f"[Step 1/2] Model loaded in {elapsed:.1f}s")
     print_ram("After loading")
-    return llm
+    return result["llm"]
 
 
 # =============================================================================
 # Input truncation
 # =============================================================================
+
 
 def truncate(text: str, max_tokens: int, keep: str) -> tuple[str, int]:
     """
@@ -113,6 +140,7 @@ def truncate(text: str, max_tokens: int, keep: str) -> tuple[str, int]:
 # Read and parse transcript
 # =============================================================================
 
+
 def read_transcript(input_file: str) -> tuple[str, str]:
     """
     Read a transcript .md file.
@@ -144,31 +172,56 @@ def read_transcript(input_file: str) -> tuple[str, str]:
 # Summarize
 # =============================================================================
 
+
 def summarize(llm, text: str, max_tokens: int, max_out: int) -> tuple[str, float]:
-    """Run inference. Returns (raw_output, elapsed_seconds)."""
+    """Run inference with timeout. Returns (raw_output, elapsed_seconds)."""
     prompt = SUMMARIZE_PROMPT.format(input_text=text)
 
     print(f"\n[Step 2/2] Generating summary...")
-    print(f"  Input: ~{len(text) // CHARS_PER_TOKEN} tokens | Max output: {max_out} tokens")
+    print(
+        f"  Input: ~{len(text) // CHARS_PER_TOKEN} tokens | Max output: {max_out} tokens"
+    )
 
     t0 = time.time()
-    output = llm(
-        prompt,
-        max_tokens=max_out,
-        temperature=TEMPERATURE,
-        stop=["TRANSCRIPTION:", "\n\n\n"],
-    )
-    elapsed = time.time() - t0
+    result = {"output": None, "error": None}
 
+    def generate_in_thread():
+        try:
+            result["output"] = llm(
+                prompt,
+                max_tokens=max_out,
+                temperature=TEMPERATURE,
+                stop=["TRANSCRIPTION:", "\n\n\n"],
+            )
+        except Exception as e:
+            result["error"] = e
+
+    thread = threading.Thread(target=generate_in_thread)
+    thread.start()
+    thread.join(timeout=GEN_TIMEOUT)
+
+    if thread.is_alive():
+        print(f"[TIMEOUT] Generation exceeded {GEN_TIMEOUT}s. Try reducing --max-out.")
+        sys.exit(1)
+
+    if result["error"]:
+        print(f"Error: Generation failed: {result['error']}")
+        sys.exit(1)
+
+    elapsed = time.time() - t0
+    output = result["output"]
     raw = output["choices"][0]["text"].strip()
     out_tokens = len(raw) // CHARS_PER_TOKEN
-    print(f"  Done in {elapsed:.1f}s (~{out_tokens} tokens, {out_tokens / elapsed:.1f} t/s)")
+    print(
+        f"  Done in {elapsed:.1f}s (~{out_tokens} tokens, {out_tokens / elapsed:.1f} t/s)"
+    )
     return raw, elapsed
 
 
 # =============================================================================
 # Parse output
 # =============================================================================
+
 
 def parse_output(raw: str) -> tuple[str, list[str]]:
     """Extract summary paragraph and quotes list from raw LLM output."""
@@ -180,7 +233,11 @@ def parse_output(raw: str) -> tuple[str, list[str]]:
 
     quotes = re.findall(r'"([^"]+)"', quotes_text)
     if not quotes:
-        quotes = [line.lstrip("- ").strip() for line in quotes_text.splitlines() if line.strip()]
+        quotes = [
+            line.lstrip("- ").strip()
+            for line in quotes_text.splitlines()
+            if line.strip()
+        ]
 
     return summary, quotes
 
@@ -188,6 +245,7 @@ def parse_output(raw: str) -> tuple[str, list[str]]:
 # =============================================================================
 # Save output
 # =============================================================================
+
 
 def save_summary(
     summary: str,
@@ -208,7 +266,9 @@ def save_summary(
     location = get_location()
     out_tokens = sum(len(q) for q in quotes) // CHARS_PER_TOKEN  # rough
 
-    quotes_block = "\n".join(f'- "{q}"' for q in quotes) if quotes else "_No quotes extracted._"
+    quotes_block = (
+        "\n".join(f'- "{q}"' for q in quotes) if quotes else "_No quotes extracted._"
+    )
 
     content = (
         f"# Summary: {input_path.stem}\n\n"
@@ -240,6 +300,7 @@ def save_summary(
 # Main
 # =============================================================================
 
+
 def main():
     parser = argparse.ArgumentParser(
         description="Qwen2.5-7B Summarization — Local CPU Inference"
@@ -253,9 +314,9 @@ def main():
         choices=["first", "last"],
         default="last",
         help="Truncation strategy when input exceeds --max-cont: "
-             "'first' keeps the opening tokens (good for lectures/presentations), "
-             "'last' keeps the final tokens (good for meetings where conclusions matter). "
-             "Default: last",
+        "'first' keeps the opening tokens (good for lectures/presentations), "
+        "'last' keeps the final tokens (good for meetings where conclusions matter). "
+        "Default: last",
     )
     parser.add_argument(
         "--max-cont",
@@ -291,6 +352,11 @@ def main():
     llm = load_model(str(model_path))
 
     _, body = read_transcript(str(input_path))
+
+    if not body or not body.strip():
+        print("Warning: Transcription file is empty. Nothing to summarize.")
+        sys.exit(0)
+
     body, input_tokens = truncate(body, args.max_cont, args.keep)
 
     raw, elapsed = summarize(llm, body, args.max_cont, args.max_out)
