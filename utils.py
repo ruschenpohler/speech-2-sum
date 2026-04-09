@@ -67,7 +67,11 @@ def record_until_esc_or_timeout(duration: float):
 
 
 def record_audio(
-    mic: bool, loopback: bool, duration_sec: float, kHz: int = 16
+    mic: bool,
+    loopback: bool,
+    duration_sec: float,
+    kHz: int = 16,
+    wait_for_loopback: int = 30,
 ) -> tuple[np.ndarray, str]:
     """
     Record audio from mic, system loopback, or both simultaneously.
@@ -77,6 +81,7 @@ def record_audio(
         loopback: record system audio via WASAPI loopback
         duration_sec: max recording length in seconds
         kHz: sample rate in kHz (default: 16)
+        wait_for_loopback: seconds to wait for loopback device to appear (default: 30)
 
     Returns:
         (audio_array, source_label)
@@ -93,11 +98,24 @@ def record_audio(
     loopback_device = None
     if loopback:
         loopback_device = get_loopback_device()
-        if loopback_device is None:
-            print("Warning: WASAPI loopback device not found — falling back to mic.")
-            loopback = False
-            if not mic:
-                mic = True  # fallback to mic if only loopback was requested
+        if loopback_device is None and wait_for_loopback > 0:
+            print(f"  Waiting up to {wait_for_loopback}s for system audio to start...")
+            start = time.time()
+            while time.time() - start < wait_for_loopback:
+                time.sleep(1)
+                loopback_device = get_loopback_device()
+                if loopback_device is not None:
+                    print(
+                        f"  Detected system audio (device: {sd.query_devices(loopback_device)['name']})"
+                    )
+                    break
+            if loopback_device is None:
+                print(
+                    f"  No system audio detected after {wait_for_loopback}s — falling back to mic."
+                )
+                loopback = False
+                if not mic:
+                    mic = True
 
     if mic and loopback:
         source_label = "Microphone + System Audio"
