@@ -94,12 +94,10 @@ def record_audio(
     if loopback:
         loopback_device = get_loopback_device()
         if loopback_device is None:
-            print("Warning: WASAPI loopback device not found — loopback disabled.")
+            print("Warning: WASAPI loopback device not found — falling back to mic.")
             loopback = False
             if not mic:
-                raise RuntimeError(
-                    "No audio sources available (mic disabled, loopback not found)"
-                )
+                mic = True  # fallback to mic if only loopback was requested
 
     if mic and loopback:
         source_label = "Microphone + System Audio"
