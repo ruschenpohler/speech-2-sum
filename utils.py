@@ -24,12 +24,25 @@ def get_loopback_device():
     import sounddevice as sd
 
     try:
-        devices = sd.query_devices()
         default_out = sd.query_devices(kind="output")
         default_out_name = default_out["name"]
-        for i, dev in enumerate(devices):
+        print(f"  Default output: {default_out_name}")
+
+        for i, dev in enumerate(sd.query_devices()):
+            if dev["max_input_channels"] > 0 and dev.get("hostapi") is not None:
+                host_api = sd.query_hostapis(dev["hostapi"])
+                print(
+                    f"  Device {i}: {dev['name']} | inputs: {dev['max_input_channels']} | API: {host_api['name']}"
+                )
+
+        for i, dev in enumerate(sd.query_devices()):
+            # Match if device name contains default output name OR has "Loopback" in name
+            is_loopback = (
+                default_out_name.lower() in dev["name"].lower()
+                or "loopback" in dev["name"].lower()
+            )
             if (
-                default_out_name in dev["name"]
+                is_loopback
                 and dev["max_input_channels"] > 0
                 and dev.get("hostapi") is not None
             ):
@@ -38,9 +51,10 @@ def get_loopback_device():
                     "WASAPI" in host_api["name"]
                     and i != sd.query_devices(kind="input")["index"]
                 ):
+                    print(f"  Found loopback device: {dev['name']} (index {i})")
                     return i
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"  Error detecting loopback: {e}")
     return None
 
 
