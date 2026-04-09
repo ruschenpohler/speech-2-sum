@@ -77,7 +77,7 @@ python download_summarizer.py
 python download_summarizer.py --cache-dir D:\\models   # optional custom path
 ```
 
-Source: `Qwen/Qwen2.5-7B-Instruct-GGUF` on HuggingFace, file `qwen2.5-7b-instruct-q8_0.gguf`.
+Source: `second-state/Qwen2.5-7B-Instruct-GGUF` on HuggingFace, file `Qwen2.5-7B-Instruct-Q8_0.gguf`.
 
 | Property | Value |
 |---|---|

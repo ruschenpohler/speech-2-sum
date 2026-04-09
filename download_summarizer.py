@@ -13,8 +13,8 @@ from pathlib import Path
 from huggingface_hub import hf_hub_download
 
 
-MODEL_REPO = "Qwen/Qwen2.5-7B-Instruct-GGUF"
-MODEL_FILE = "qwen2.5-7b-instruct-q8_0.gguf"
+MODEL_REPO = "second-state/Qwen2.5-7B-Instruct-GGUF"
+MODEL_FILE = "Qwen2.5-7B-Instruct-Q8_0.gguf"
 
 
 def main():

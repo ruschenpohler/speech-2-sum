@@ -27,7 +27,7 @@ LOAD_TIMEOUT = 120  # seconds
 GEN_TIMEOUT = 300  # seconds
 
 
-MODEL_FILE = "qwen2.5-7b-instruct-q8_0.gguf"
+MODEL_FILE = "Qwen2.5-7B-Instruct-Q8_0.gguf"
 DEFAULT_MODEL_DIR = "models"
 TEMPERATURE = 0.3
 CHARS_PER_TOKEN = 4  # rough estimate for English
