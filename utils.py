@@ -174,7 +174,9 @@ def record_audio(
     if loopback:
         try:
             device_info = sd.query_devices(loopback_device)
+            print(f"  Device info: {device_info}")
             device_rate = int(device_info.get("default_sample_rate", sample_rate))
+            print(f"  Device sample rate: {device_rate}Hz, requested: {sample_rate}Hz")
             if device_rate != sample_rate:
                 print(f"  Adjusting to device sample rate: {device_rate}Hz")
                 sample_rate = device_rate
