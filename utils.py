@@ -15,26 +15,29 @@ import numpy as np
 import psutil
 
 
-def get_loopback_device():
+def get_loopback_device(verbose: bool = True):
     """
     Find the WASAPI loopback device corresponding to the default audio output.
     Returns the sounddevice device index, or None if not found.
-    WASAPI loopback captures whatever is playing through the system speakers/headphones.
     On Windows, also checks for "PC Speaker" and "Stereo Mix" via WDM-KS.
+
+    Args:
+        verbose: if True, print all detected input devices for debugging
     """
     import sounddevice as sd
 
     try:
         default_out = sd.query_devices(kind="output")
         default_out_name = default_out["name"]
-        print(f"  Default output: {default_out_name}")
+        if verbose:
+            print(f"  Default output: {default_out_name}")
 
-        for i, dev in enumerate(sd.query_devices()):
-            if dev["max_input_channels"] > 0 and dev.get("hostapi") is not None:
-                host_api = sd.query_hostapis(dev["hostapi"])
-                print(
-                    f"  Device {i}: {dev['name']} | inputs: {dev['max_input_channels']} | API: {host_api['name']}"
-                )
+            for i, dev in enumerate(sd.query_devices()):
+                if dev["max_input_channels"] > 0 and dev.get("hostapi") is not None:
+                    host_api = sd.query_hostapis(dev["hostapi"])
+                    print(
+                        f"  Device {i}: {dev['name']} | inputs: {dev['max_input_channels']} | API: {host_api['name']}"
+                    )
 
         for i, dev in enumerate(sd.query_devices()):
             if dev["max_input_channels"] == 0:
@@ -122,13 +125,13 @@ def record_audio(
 
     loopback_device = None
     if loopback:
-        loopback_device = get_loopback_device()
+        loopback_device = get_loopback_device(verbose=True)
         if loopback_device is None and wait_for_loopback > 0:
             print(f"  Waiting up to {wait_for_loopback}s for system audio to start...")
             start = time.time()
             while time.time() - start < wait_for_loopback:
                 time.sleep(2)
-                loopback_device = get_loopback_device()
+                loopback_device = get_loopback_device(verbose=False)
                 if loopback_device is not None:
                     print(
                         f"  Detected system audio (device: {sd.query_devices(loopback_device)['name']})"
