@@ -20,6 +20,7 @@ def get_loopback_device():
     Find the WASAPI loopback device corresponding to the default audio output.
     Returns the sounddevice device index, or None if not found.
     WASAPI loopback captures whatever is playing through the system speakers/headphones.
+    On Windows, also checks for "PC Speaker" and "Stereo Mix" via WDM-KS.
     """
     import sounddevice as sd
 
@@ -36,23 +37,33 @@ def get_loopback_device():
                 )
 
         for i, dev in enumerate(sd.query_devices()):
-            # Match if device name contains default output name OR has "Loopback" in name
+            if dev["max_input_channels"] == 0:
+                continue
+
+            dev_name = dev["name"].lower()
+            host_api = sd.query_hostapis(dev["hostapi"])
+            api_name = host_api["name"]
+
+            # Match if device name contains default output name OR is PC Speaker/Stereo Mix
             is_loopback = (
-                default_out_name.lower() in dev["name"].lower()
-                or "loopback" in dev["name"].lower()
+                default_out_name.lower() in dev_name
+                or "pc speaker" in dev_name
+                or "stereo mix" in dev_name
+                or "loopback" in dev_name
             )
+
+            # Accept WASAPI or WDM-KS (WDM-KS is how PC Speaker appears on Windows)
+            is_windows_api = "WASAPI" in api_name or "WDM-KS" in api_name
+
             if (
                 is_loopback
-                and dev["max_input_channels"] > 0
-                and dev.get("hostapi") is not None
+                and is_windows_api
+                and i != sd.query_devices(kind="input")["index"]
             ):
-                host_api = sd.query_hostapis(dev["hostapi"])
-                if (
-                    "WASAPI" in host_api["name"]
-                    and i != sd.query_devices(kind="input")["index"]
-                ):
-                    print(f"  Found loopback device: {dev['name']} (index {i})")
-                    return i
+                print(
+                    f"  Found loopback device: {dev['name']} (index {i}, API: {api_name})"
+                )
+                return i
     except Exception as e:
         print(f"  Error detecting loopback: {e}")
     return None
