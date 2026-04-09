@@ -170,6 +170,17 @@ def record_audio(
 
     print(f"  Source: {source_label}")
 
+    # Check and adjust sample rate for loopback device if needed
+    if loopback:
+        try:
+            device_info = sd.query_devices(loopback_device)
+            device_rate = int(device_info.get("default_sample_rate", sample_rate))
+            if device_rate != sample_rate:
+                print(f"  Adjusting to device sample rate: {device_rate}Hz")
+                sample_rate = device_rate
+        except Exception as e:
+            print(f"  Could not query device sample rate: {e}")
+
     mic_chunks = []
     loop_chunks = []
 
