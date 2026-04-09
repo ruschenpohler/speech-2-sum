@@ -218,9 +218,9 @@ def record_audio(
         if loop_max > 0:
             loop_arr = loop_arr / loop_max
         audio = (mic_arr + loop_arr) / 2.0
-    elif mic:
+    elif mic and mic_chunks:
         audio = np.concatenate(mic_chunks).flatten()
-    elif loopback:
+    elif loopback and loop_chunks:
         audio = np.concatenate(loop_chunks).flatten()
     else:
         audio = np.array([], dtype=np.float32)
