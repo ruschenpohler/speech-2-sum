@@ -205,7 +205,9 @@ def record_audio(
     with MultiStream(streams):
         record_until_esc_or_timeout(duration_sec)
 
-    if mic and loopback:
+    print(f"  Recorded: mic_chunks={len(mic_chunks)}, loop_chunks={len(loop_chunks)}")
+
+    if mic and loopback and mic_chunks and loop_chunks:
         mic_arr = np.concatenate(mic_chunks).flatten()
         loop_arr = np.concatenate(loop_chunks).flatten()
         min_len = min(len(mic_arr), len(loop_arr))
@@ -224,6 +226,10 @@ def record_audio(
         audio = np.concatenate(loop_chunks).flatten()
     else:
         audio = np.array([], dtype=np.float32)
+        print(
+            "  Warning: No audio recorded. System audio device may not be capturing data."
+        )
+        source_label = "Microphone (loopback failed)"
 
     return audio, source_label
 
