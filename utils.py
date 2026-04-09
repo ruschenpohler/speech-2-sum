@@ -102,13 +102,14 @@ def record_audio(
             print(f"  Waiting up to {wait_for_loopback}s for system audio to start...")
             start = time.time()
             while time.time() - start < wait_for_loopback:
-                time.sleep(1)
+                time.sleep(2)
                 loopback_device = get_loopback_device()
                 if loopback_device is not None:
                     print(
                         f"  Detected system audio (device: {sd.query_devices(loopback_device)['name']})"
                     )
                     break
+                print(f"  Still waiting... ({int(time.time() - start)}s)")
             if loopback_device is None:
                 print(
                     f"  No system audio detected after {wait_for_loopback}s — falling back to mic."
@@ -174,7 +175,7 @@ def record_audio(
                 s.__exit__(*args)
 
     with MultiStream(streams):
-        record_until_esc_or_timeout(duration)
+        record_until_esc_or_timeout(duration_sec)
 
     if mic and loopback:
         mic_arr = np.concatenate(mic_chunks).flatten()
