@@ -3,7 +3,7 @@ Interactive setup: creates a uv virtual environment and installs the
 model backend(s) of your choice.
 
 Usage:
-    python setup.py
+    python install.py
 """
 
 import subprocess
@@ -83,9 +83,7 @@ def main():
         )
         cont = ask("Continue anyway? (y/n): ", {"y", "n"})
         if cont == "n":
-            print(
-                "Aborted. Re-run setup.py and choose Voxtral only, or switch to WSL2."
-            )
+            print("Aborted. Re-run install.py and choose Voxtral only, or switch to WSL2.")
             sys.exit(0)
 
     print(f"\nCreating virtual environment with uv...")

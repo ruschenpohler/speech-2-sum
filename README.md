@@ -22,10 +22,10 @@ git clone https://github.com/ruschenpohler/speech-2-sum.git
 cd speech-2-sum
 
 # Interactive setup — choose Voxtral, Parakeet, or both
-python setup.py
+python install.py
 ```
 
-`setup.py` will create a `.venv`, install the right dependencies for your chosen backend, and print the next steps.
+`install.py` will create a `.venv`, install the right dependencies for your chosen backend, and print the next steps.
 
 ### Manual install (alternative)
 
