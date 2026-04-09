@@ -15,7 +15,7 @@ import numpy as np
 import psutil
 
 
-def get_loopback_device(verbose: bool = True):
+def get_loopback_device(verbose: bool = True, api_filter: str = None):
     """
     Find the WASAPI loopback device corresponding to the default audio output.
     Returns the sounddevice device index, or None if not found.
@@ -23,6 +23,7 @@ def get_loopback_device(verbose: bool = True):
 
     Args:
         verbose: if True, print all detected input devices for debugging
+        api_filter: if set, only return devices matching this API (e.g., "WASAPI" or "WDM-KS")
     """
     import sounddevice as sd
 
@@ -46,6 +47,10 @@ def get_loopback_device(verbose: bool = True):
             dev_name = dev["name"].lower()
             host_api = sd.query_hostapis(dev["hostapi"])
             api_name = host_api["name"]
+
+            # Filter by API if requested
+            if api_filter and api_filter not in api_name:
+                continue
 
             # Match if device name contains default output name OR is PC Speaker/Stereo Mix
             # Priority: Stereo Mix first (often more reliable), then PC Speaker, then generic match
@@ -126,13 +131,22 @@ def record_audio(
 
     loopback_device = None
     if loopback:
-        loopback_device = get_loopback_device(verbose=True)
+        # First try WASAPI loopback (works with headphones/external audio)
+        loopback_device = get_loopback_device(verbose=True, api_filter="WASAPI")
+        # If not found, try WDM-KS devices (PC Speaker / Stereo Mix for built-in speakers)
+        if loopback_device is None:
+            print("  No WASAPI loopback found, trying WDM-KS devices...")
+            loopback_device = get_loopback_device(verbose=True, api_filter="WDM-KS")
+
         if loopback_device is None and wait_for_loopback > 0:
             print(f"  Waiting up to {wait_for_loopback}s for system audio to start...")
             start = time.time()
             while time.time() - start < wait_for_loopback:
                 time.sleep(2)
-                loopback_device = get_loopback_device(verbose=False)
+                # Try WDM-KS during wait (WASM API probably won't appear mid-recording)
+                loopback_device = get_loopback_device(
+                    verbose=False, api_filter="WDM-KS"
+                )
                 if loopback_device is not None:
                     print(
                         f"  Detected system audio (device: {sd.query_devices(loopback_device)['name']})"
